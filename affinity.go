@@ -127,5 +127,6 @@ func (request *SchedulerRequest) GetAffinityList() *InstanceAffinityList {
 			}
 		}
 	}
+	list.Sort()
 	return list
 }
