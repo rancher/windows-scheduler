@@ -3,9 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
-	//"github.com/mitchellh/mapstructure"
 	log "github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
 	"github.com/rancher/event-subscriber/events"
@@ -38,7 +36,7 @@ func (s *Scheduler) Prioritize(event *events.Event, client *client.RancherClient
 	}
 	s.watcher.RUnlock()
 
-	response.FilterWindows(request)
+	response.AddHostOSConstraint(request)
 	response.FilterAffinities(request)
 
 	eventDataWrapper := map[string]interface{}{"prioritizedCandidates": getHostUUID(response.Hosts)}
@@ -90,65 +88,27 @@ type SchedulerResponse struct {
 	Hosts []metadata.Host
 }
 
-func (s *SchedulerResponse) FilterWindows(r *SchedulerRequest) {
+func (s *SchedulerResponse) AddHostOSConstraint(r *SchedulerRequest) {
 	for _, i := range r.Instances {
-		i.AddSchedulingAffinity("host_label", fmt.Sprintf("io.rancher.host.os=%s", i.DetectOS()))
+		hostOS := "windows"
+		if _, ok := i.Data.Fields.Labels["io.rancher.container.system"]; ok {
+			hostOS = "linux"
+		}
+		i.AddSchedulingAffinity("host_label", fmt.Sprintf("io.rancher.host.os=%s", hostOS))
 	}
 }
 
 func (s *SchedulerResponse) FilterAffinities(r *SchedulerRequest) {
 	list := r.GetAffinityList()
-	list.Sort()
 	s.FilterAffinityList(list)
 }
 
-func (i *Instance) DetectOS() string {
-	os := "windows"
-
-	wl := false
-	identifier := strings.Split(i.Data.Fields.Image, ":")[1]
-	x := strings.Split(identifier, "/")
-	switch x[0] {
-	case "llparse":
-		wl = true
-	case "rancher":
-		wl = true
-	}
-	if wl {
-		wl = false
-		switch x[1] {
-		case "network-manager":
-			wl = true
-		case "metadata":
-			wl = true
-		case "dns":
-			wl = true
-		case "healthcheck":
-			wl = true
-		case "lb-service-haproxy":
-			wl = true
-		case "windows-scheduler":
-			wl = true
-		case "scheduler":
-			wl = true
-		}
-	}
-	if wl {
-		os = "linux"
-	}
-
-	log.WithFields(log.Fields{
-		"image": i.Data.Fields.Image,
-		"os":    os,
-	}).Debug("detect_os")
-
-	return os
-}
-
+// AddSchedulingAffinity adds a scheduler affinity label to an instance
 func (i *Instance) AddSchedulingAffinity(kind string, value string) {
 	i.AddLabel(fmt.Sprintf("io.rancher.scheduler.affinity:%s", kind), value)
 }
 
+// AddLabel adds a label to an instance
 func (i *Instance) AddLabel(key string, val string) {
 	newval, ok := i.Data.Fields.Labels[key]
 	if ok {

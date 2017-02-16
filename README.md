@@ -5,8 +5,8 @@ A Rancher scheduler for heterogeneous Windows/Linux environments.
 
 The primary goal is selecting a host with correct operating system for a particular container. It accomplishes this task in two stages:
 
-1. Inject a host_label constraint into incoming prioritize events
-2. Process host_label constraints and return a set of candidates
+1. Inject a host_label constraint into incoming prioritize events based on `io.rancher.container.system` label presence
+2. Evaluate host_label constraints and return a set of host candidates
 
 ## Building
 
